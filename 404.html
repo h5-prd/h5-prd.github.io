@@ -1,0 +1,135 @@
+<!DOCTYPE html><html lang=""><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover"><!--[if IE]><link rel="icon" href="/favicon.ico" /><![endif]--><link rel="shortcut icon" href="/favicon.ico"><script async src="https://www.googletagmanager.com/gtag/js?id=G-LFKW8KRD0V"></script><script>function aveApiDomain() {
+        var base = 'https://dingquanyu.com'
+        if (base === 'https://api.test.phaetd8l.com' || base === 'https://test.staginggo.com') {
+          return base
+        }
+        try {
+          var saved = localStorage.getItem('apiDomain')
+          if (saved && saved.charAt(0) === '{') {
+            var parsed = JSON.parse(saved)
+            if (parsed && parsed.domain) return parsed.domain
+          }
+        } catch (e) { /* 读不到就用默认域名 */ }
+        return base
+      }</script><script>(function () {
+        try {
+          var d = aveApiDomain()
+          if (!d) return
+          var l = document.createElement('link')
+          l.rel = 'preconnect'
+          l.href = d
+          // 接口不带 cookie（axios 没开 withCredentials），所以按匿名连接预热
+          l.crossOrigin = 'anonymous'
+          document.head.appendChild(l)
+        } catch (e) { /* 只是加速手段，失败就当没预连接 */ }
+      })()</script><script>(function () {
+        try {
+          var m = location.pathname.match(/\/token\/([^/?#]+)/)
+          if (!m) return
+          var id = decodeURIComponent(m[1])
+          if (id.indexOf('-') < 0) return
+          // 与 filter.js 的 getAddressAndChainFromId 同源：链名是最后一段
+          var address = id.replace(/-[^-]+$/, '')
+          var chain = id.slice(address.length + 1)
+          if (!address || !chain) return
+
+          // 没有 ave_token 这一发必然 403，白费一个往返；首次访问就老老实实等应用自己发
+          var auth = localStorage.getItem('ave_token') || ''
+          if (!auth) return
+
+          // 与 utils/kline.js 的 KLINE_WINDOW / storedResolution / savedResolution 同源
+          var SIZE = 1000
+          var W = {
+            's1': SIZE, 1: SIZE * 60, 5: SIZE * 300, 10: SIZE * 600, 15: SIZE * 900,
+            30: SIZE * 1800, 60: SIZE * 3600, 120: SIZE * 7200, 240: SIZE * 14400,
+            720: SIZE * 43200, 1440: SIZE * 86400, 10080: SIZE * 604800
+          }
+          var res = localStorage.getItem('resolution') || '60'
+          if (!W[res]) res = '60'
+          if (res === 's1' && ['solana', 'bsc', 'eth', 'base', 'tron'].indexOf(chain) < 0) res = '60'
+
+          // 与 klineIdentityFor 同源：聚合关着时优先复用上次为这个币选过的池
+          var tokenId = id, pairId = ''
+          if (localStorage.getItem('aggrKlineEnabled') !== '1') {
+            var sp = localStorage.getItem('statePair')
+            var saved = sp ? (JSON.parse(sp) || {})[id] : ''
+            if (saved) { tokenId = ''; pairId = saved + '-' + chain }
+          }
+
+          var domain = aveApiDomain()
+          if (!domain) return
+
+          var interval = res.charAt(0) === 's' ? Number(res.slice(1)) : Number(res) * 60
+          var from = parseInt(Date.now() / 1000 - W[res], 10)
+          // 按 pair 查时后端要的是裸地址（与 getTokenKlineV2 一致）
+          var q = pairId ? 'pair=' + encodeURIComponent(saved) : 'token=' + encodeURIComponent(address)
+          var url = domain + '/v2api/token_info/v1/token/kline_v2?' + q +
+            '&chain=' + encodeURIComponent(chain) +
+            '&interval=' + interval + '&from=' + from + '&to=0&category=u&limit_count=300'
+
+          // 与 request.js 的请求拦截器同源
+          var lang = localStorage.getItem('language') || ''
+          var langMap = { 'zh-cn': 'cn', 'zh-tw': 'cn', 'en': 'en', 'in': 'en' }
+          var headers = {
+            'X-Auth': auth,
+            'ave-platform': 'h5',
+            'app-version-name': '1.0.0',
+            'lang': langMap[lang] || '',
+            'lang-zone': lang || 'en'
+          }
+
+          window.__aveKlinePrefetch = {
+            key: [id, tokenId, pairId, res].join('|'),
+            at: Date.now(),
+            claimed: false,
+            // 只取到响应文本为止：解析和解码都交给应用里那一份（decodeResponse.js /
+            // mapKlineResponse），避免两条路径解出不一样的结果。
+            // 用 text() 而不是 json()：这套接口存在整个 body 就是一段 base64 的情况
+            // （decodeApiPayload 里专门有这一支），json() 会直接抛。
+            // 末尾的 catch 不能省：认领要等主包跑起来，大约 600ms 后才会挂上 handler，
+            // 中间失败会触发 unhandledrejection；没被认领的话更是永远挂着。
+            promise: fetch(url, { headers: headers, credentials: 'omit' })
+              .then(function (r) { return r.text() })
+              .catch(function () { return null })
+          }
+        } catch (e) {
+          // 抢跑只是加速手段，任何岔子都不该影响正常启动（webview 里 localStorage 可能直接抛）
+          window.__aveKlinePrefetch = null
+        }
+      })()</script><script src="/vemachine.js"></script><title>Ave.ai</title><meta name="description" content="Ave.ai is the most comprehensive on-chain crypto trading platform, integrating 130+ blockchains and 300+ DEXs for secure, professional, and fast trading. It empowers 7M+ users with advanced token analysis and seamless execution across its App, PC platform, and trading bots."><style id="antiClickjack">body{display:none !important;}</style><script>if (self === top) {
+        var antiClickjack = document.getElementById("antiClickjack")
+        antiClickjack.parentNode.removeChild(antiClickjack)
+      } else {
+        top.location = self.location
+      }
+
+      function redirect() {
+        // let domains = ['avedex.cc', 'ave.ai', 'opencw.online', 'opencc.club']
+        // let isDomain = domains.some(i => location.hostname.includes(i))
+        let isMobile = /mobile|phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone/i.test(navigator.userAgent)
+        let isRedirect = !/test|opencc\.club|aoweb\.cloud|github|localhost/.test(location.host)
+        if (!isMobile && location.protocol.includes('http') && isRedirect) {
+          if(location.href.includes('m.avesp.xyz')){
+            location.replace(location.href.replace('m.', 'old.'))
+          } else {
+            location.replace(location.href.replace('m.', ''))
+          }
+        }
+      }
+      redirect()</script><link href="/static/css/app.88245835.css" rel="preload" as="style"><link href="/static/css/chunk-libs.61d472b5.css" rel="preload" as="style"><link href="/static/css/chunk-vant.cdb21971.css" rel="preload" as="style"><link href="/static/js/app.8164dfb5.js" rel="preload" as="script"><link href="/static/js/chunk-libs.df205950.js" rel="preload" as="script"><link href="/static/js/chunk-vant.9f0d35ef.js" rel="preload" as="script"><link href="/static/js/runtime.5be32edd.js" rel="preload" as="script"><link href="/static/css/chunk-vant.cdb21971.css" rel="stylesheet"><link href="/static/css/chunk-libs.61d472b5.css" rel="stylesheet"><link href="/static/css/app.88245835.css" rel="stylesheet"><link rel="icon" type="image/png" sizes="32x32" href="/img/icons/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/img/icons/favicon-16x16.png"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#2C3254"><meta name="apple-mobile-web-app-capable" content="no"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Ave"><link rel="apple-touch-icon" href="/img/icons/apple-touch-icon-152x152.png"><link rel="mask-icon" href="/img/icons/safari-pinned-tab.svg" color="#2C3254"><meta name="msapplication-TileImage" content="/img/icons/msapplication-icon-144x144.png"><meta name="msapplication-TileColor" content="#000000"></head><body><noscript><strong>We're sorry but avedex-m doesn't work properly without JavaScript enabled. Please enable it to continue.</strong></noscript><div id="app"></div><script>window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-LFKW8KRD0V');
+      //添加红包雨
+      // ;(function () {
+      //   var script = document.createElement('script')
+      //   script.onload = function () {
+      //     MapleRedPacketSDK.initMapleRedPacket({
+      //       platform: "ave"
+      //     }).renderToBody()
+      //   }
+      //   script.defer = true
+      //   script.src = 'https://unpkg.com/@maple-tech/red-packet-sdk/dist/index.iife.js'
+      //   document.body.appendChild(script)
+      // })()</script><script src="/static/js/runtime.5be32edd.js"></script><script src="/static/js/chunk-vant.9f0d35ef.js"></script><script src="/static/js/chunk-libs.df205950.js"></script><script src="/static/js/app.8164dfb5.js"></script></body></html>
